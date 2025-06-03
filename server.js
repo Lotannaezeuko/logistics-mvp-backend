@@ -1,6 +1,6 @@
+require('dotenv').config();
 const express = require("express");
 const pool = require("./config/db");
-require('dotenv').config();
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const jobsRoutes = require("./routes/jobsRoutes");
