@@ -3,6 +3,7 @@ const pool = require("./config/db");
 require('dotenv').config();
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
+const jobsRoutes = require("./routes/jobsRoutes");
 
 
 
@@ -20,6 +21,7 @@ app.get("/test-db", async (req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/jobs", jobsRoutes);
 
 const PORT = 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
