@@ -4,8 +4,13 @@
   "description": "The backend code for my logistics app mvp.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "pg": "^8.16.0"
+  }
 }
