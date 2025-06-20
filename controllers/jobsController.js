@@ -36,7 +36,7 @@ exports.createJob = async (req, res) => {
 
 exports.getAllJobs = async (req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM jobs WHERE status = 'open' ORDER BY created_at DESC`);
+    const result = await pool.query(`SELECT * FROM jobs ORDER BY created_at DESC`);
     res.json(result.rows);
   } catch (err) {
     console.error(err);

@@ -40,10 +40,18 @@ exports.getMyBookings = async (req, res) => {
 
   try {
     const bookings = await pool.query(
-      `SELECT b.*, j.title, j.origin_address, j.destination_address
-       FROM bookings b
-       JOIN jobs j ON b.job_id = j.id
-       WHERE b.booked_by = $1`,
+      `SELECT 
+      bookings.id,
+      bookings.job_id,
+      bookings.status,
+      bookings.booked_at,
+      bookings.completed_at,
+      jobs.title,
+      jobs.origin_address,
+      jobs.destination_address
+      FROM bookings
+      JOIN jobs ON bookings.job_id = jobs.id
+      WHERE bookings.booked_by = $1;`,
       [userId]
     );
     res.json(bookings.rows);
