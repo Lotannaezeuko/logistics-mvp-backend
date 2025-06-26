@@ -43,3 +43,19 @@ exports.getAllJobs = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch jobs' });
   }
 };
+
+exports.getMyJobs = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT * FROM jobs WHERE created_by = $1 ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching user jobs:', err);
+    res.status(500).json({ error: 'Failed to fetch your jobs' });
+  }
+};

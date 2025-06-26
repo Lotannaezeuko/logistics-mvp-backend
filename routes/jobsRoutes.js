@@ -5,5 +5,6 @@ const { authenticateJWT } = require('../middleware/authMiddleware');
 
 router.post('/', authenticateJWT, jobsController.createJob);
 router.get('/', jobsController.getAllJobs);
+router.get('/my-jobs', authenticateJWT, jobsController.getMyJobs);
 
 module.exports = router;
