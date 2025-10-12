@@ -4,9 +4,37 @@ CREATE TABLE users (
   last_name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('manufacturer', 'haulier', 'freight_forwarder', 'logistics_company')),
+  role TEXT NOT NULL CHECK (role IN ('manufacturer', 'haulier', 'logistics_company')),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Making the additional tables for the types of users
+CREATE TABLE manufacturers (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  years_in_business INT,
+  product_type TEXT,
+  target_areas TEXT
+);
+
+-- Hauliers
+CREATE TABLE hauliers (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  fleet_size INT,
+  preferred_routes TEXT,
+  insurance_valid_until DATE
+);
+
+-- Logistics Companies
+CREATE TABLE logistics_companies (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  company_size INT,
+  specialties TEXT,
+  target_lanes TEXT
+);
+
 
 CREATE TABLE jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
