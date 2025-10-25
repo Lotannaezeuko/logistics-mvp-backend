@@ -5,6 +5,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const jobsRoutes = require("./routes/jobsRoutes");
 const bookingsRoutes = require("./routes/bookingsRoutes");
+const matchingRoutes = require("./routes/matchingRoutes");
 
 
 
@@ -24,6 +25,7 @@ app.get("/test-db", async (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/jobs", jobsRoutes);
 app.use("/bookings", bookingsRoutes);
+app.use("/matching", matchingRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
