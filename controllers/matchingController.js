@@ -13,6 +13,44 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+// Check if a route matches based on actual route pairs
+function checkRouteMatch(preferredRoutes, origin, destination) {
+  // Split routes by comma and normalize
+  const routes = preferredRoutes.split(',').map(r => r.trim().toLowerCase());
+  
+  origin = origin.toLowerCase().trim();
+  destination = destination.toLowerCase().trim();
+  
+  for (const route of routes) {
+    // Check for "A to B" format
+    const parts = route.split(/\s+to\s+/).map(p => p.trim());
+    
+    if (parts.length === 2) {
+      const [routeOrigin, routeDestination] = parts;
+      
+      // Perfect match: exact route
+      if (routeOrigin === origin && routeDestination === destination) {
+        return { type: 'perfect', route };
+      }
+      
+      // Reverse match: B to A when route says A to B
+      if (routeOrigin === destination && routeDestination === origin) {
+        return { type: 'reverse', route };
+      }
+    }
+  }
+  
+  // Check for partial matches (only one city matches)
+  for (const route of routes) {
+    const routeLower = route.toLowerCase();
+    if (routeLower.includes(origin) || routeLower.includes(destination)) {
+      return { type: 'partial', route };
+    }
+  }
+  
+  return { type: 'none' };
+}
+
 // Get matched jobs for the current user
 exports.getMatchedJobs = async (req, res) => {
   try {
@@ -68,63 +106,74 @@ exports.getMatchedJobs = async (req, res) => {
       let score = 0;
       let matchFactors = [];
 
-      // 1. Route matching for hauliers (40 points max)
+      // 1. Route matching for hauliers (70 points max - DOMINANT FACTOR)
       if (userRole === 'haulier' && roleDetails?.preferred_routes) {
-        const preferredRoutes = roleDetails.preferred_routes.toLowerCase();
-        const origin = job.origin_address.toLowerCase();
-        const destination = job.destination_address.toLowerCase();
-        
-        console.log('=== Route Matching Debug ===');
+        console.log('\n=== Route Matching Debug ===');
         console.log('Job:', job.title);
-        console.log('Preferred routes:', preferredRoutes);
-        console.log('Origin:', origin, '| Destination:', destination);
+        console.log('Origin:', job.origin_address, '| Destination:', job.destination_address);
+        console.log('Preferred routes:', roleDetails.preferred_routes);
         
-        // Check if both origin and destination are in preferred routes
-        const originMatch = preferredRoutes.includes(origin);
-        const destinationMatch = preferredRoutes.includes(destination);
+        const routeMatch = checkRouteMatch(
+          roleDetails.preferred_routes,
+          job.origin_address,
+          job.destination_address
+        );
         
-        console.log('Origin match:', originMatch, '| Destination match:', destinationMatch);
+        console.log('Match result:', routeMatch);
         
-        if (originMatch && destinationMatch) {
-          // Perfect route match - both cities in preferred routes
-          score += 40;
-          matchFactors.push(`Perfect route match: ${job.origin_address} → ${job.destination_address}`);
-          console.log('✅ Perfect match! +40 points');
-        } else if (originMatch || destinationMatch) {
-          // Partial match - one city matches
-          score += 20;
-          matchFactors.push(`Partial route match: passes through ${originMatch ? job.origin_address : job.destination_address}`);
-          console.log('✅ Partial match! +20 points');
+        if (routeMatch.type === 'perfect') {
+          score += 70;
+          matchFactors.push(`Perfect route: ${job.origin_address} → ${job.destination_address}`);
+          console.log('✅ Perfect match! +70 points');
+        } else if (routeMatch.type === 'reverse') {
+          score += 60;
+          matchFactors.push(`Return route: ${job.destination_address} → ${job.origin_address}`);
+          console.log('✅ Reverse match! +60 points');
+        } else if (routeMatch.type === 'partial') {
+          score += 10;
+          matchFactors.push(`Near preferred area`);
+          console.log('⚠️ Partial match! +10 points');
+        } else {
+          console.log('❌ No match');
         }
         console.log('========================\n');
       }
 
-      // 2. Target areas/lanes matching (35 points max)
+      // 2. Target areas/lanes matching for logistics companies (60 points max)
       if (userRole === 'logistics_company' && roleDetails?.target_lanes) {
         const targetLanes = roleDetails.target_lanes.toLowerCase();
         const origin = job.origin_address.toLowerCase();
         const destination = job.destination_address.toLowerCase();
         
-        if (targetLanes.includes(origin) || targetLanes.includes(destination)) {
-          score += 35;
-          matchFactors.push('Matches target lanes');
+        const originMatch = targetLanes.includes(origin);
+        const destinationMatch = targetLanes.includes(destination);
+        
+        if (originMatch && destinationMatch) {
+          score += 60;
+          matchFactors.push(`Both cities in target lanes`);
+        } else if (originMatch || destinationMatch) {
+          score += 30;
+          matchFactors.push(`One city in target lanes`);
         }
       }
 
-      // 3. Fleet size vs job weight for hauliers (25 points max)
+      // 3. Fleet size vs job weight for hauliers (15 points max)
       if (userRole === 'haulier' && roleDetails?.fleet_size && job.weight) {
-        // Assume larger fleet = can handle heavier loads
-        const weightScore = Math.min(25, (roleDetails.fleet_size / 10) * 5);
+        // Larger fleet = can handle heavier loads
+        const weightScore = Math.min(15, (roleDetails.fleet_size / 10) * 3);
         score += weightScore;
-        matchFactors.push(`Fleet size ${roleDetails.fleet_size} suitable for weight`);
+        if (weightScore >= 10) {
+          matchFactors.push(`Fleet size suitable for ${job.weight}kg`);
+        }
       }
 
-      // 4. Price attractiveness (20 points max)
+      // 4. Price attractiveness (10 points max - reduced)
       if (job.price) {
-        // Higher paying jobs get more points
-        const priceScore = Math.min(20, (job.price / 100) * 2);
+        const priceScore = Math.min(10, (job.price / 200) * 2);
         score += priceScore;
-        matchFactors.push(`Competitive price: £${job.price}`);
+        if (job.price >= 800) {
+          matchFactors.push(`High value job: £${job.price}`);
+        }
       }
 
       // 5. Deadline urgency (15 points max)
@@ -132,14 +181,14 @@ exports.getMatchedJobs = async (req, res) => {
         const daysUntilDeadline = Math.ceil((new Date(job.deadline) - new Date()) / (1000 * 60 * 60 * 24));
         if (daysUntilDeadline <= 7 && daysUntilDeadline > 0) {
           score += 15;
-          matchFactors.push(`Urgent: ${daysUntilDeadline} days until deadline`);
+          matchFactors.push(`Urgent: ${daysUntilDeadline} days`);
         } else if (daysUntilDeadline <= 14) {
           score += 10;
-          matchFactors.push(`${daysUntilDeadline} days until deadline`);
+          matchFactors.push(`${daysUntilDeadline} days deadline`);
         }
       }
 
-      // 6. Distance calculation (informational, small bonus for shorter routes)
+      // 6. Distance calculation (5 points max - reduced significantly)
       if (job.origin_lat && job.origin_lng && job.destination_lat && job.destination_lng) {
         const distance = calculateDistance(
           job.origin_lat,
@@ -148,19 +197,18 @@ exports.getMatchedJobs = async (req, res) => {
           job.destination_lng
         );
         
-        // Shorter distances get small bonus (10 points max)
-        if (distance < 100) {
-          score += 10;
-          matchFactors.push(`Short distance: ${distance.toFixed(0)} km`);
-        } else if (distance < 300) {
+        // Only small bonus for very short distances
+        if (distance < 50) {
           score += 5;
-          matchFactors.push(`Medium distance: ${distance.toFixed(0)} km`);
+          matchFactors.push(`Very short: ${distance.toFixed(0)}km`);
+        } else if (distance < 100) {
+          score += 3;
         }
         
         job.distance_km = Math.round(distance);
       }
 
-      // 7. Insurance validity check for hauliers
+      // 7. Insurance validity check for hauliers (5 points)
       if (userRole === 'haulier' && roleDetails?.insurance_valid_until) {
         const insuranceValid = new Date(roleDetails.insurance_valid_until) > new Date();
         if (insuranceValid) {
@@ -169,17 +217,18 @@ exports.getMatchedJobs = async (req, res) => {
         }
       }
 
-      // 8. Company specialties matching for logistics companies
+      // 8. Company specialties matching for logistics companies (40 points)
       if (userRole === 'logistics_company' && roleDetails?.specialties && job.description) {
         const specialties = roleDetails.specialties.toLowerCase();
         const description = job.description.toLowerCase();
         
-        // Check for specialty keywords in job description
         const specialtyKeywords = specialties.split(',').map(s => s.trim());
-        const hasMatch = specialtyKeywords.some(keyword => description.includes(keyword));
+        const hasMatch = specialtyKeywords.some(keyword => 
+          description.includes(keyword) || job.title.toLowerCase().includes(keyword)
+        );
         
         if (hasMatch) {
-          score += 30;
+          score += 40;
           matchFactors.push('Matches company specialties');
         }
       }
@@ -188,7 +237,7 @@ exports.getMatchedJobs = async (req, res) => {
         ...job,
         match_score: Math.round(score),
         match_factors: matchFactors,
-        match_percentage: Math.min(100, Math.round((score / 150) * 100)) // Out of 100%
+        match_percentage: Math.min(100, Math.round((score / 100) * 100))
       };
     });
 
@@ -212,9 +261,6 @@ exports.getJobMatchExplanation = async (req, res) => {
   try {
     const userId = req.user.id;
     const jobId = req.params.jobId;
-
-    // Similar logic as above but for single job
-    // This endpoint can provide detailed explanation of why a job matches
 
     res.json({
       message: 'Match explanation for job',
