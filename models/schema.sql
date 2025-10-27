@@ -72,3 +72,21 @@ CREATE TABLE payments (
   paid_at TIMESTAMP,
   status TEXT
 );
+
+-- making a new table to store the documents uploaded by users
+CREATE TABLE documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL, -- e.g., 'insurance_certificate', 'operators_license', etc.
+  document_category TEXT NOT NULL, -- e.g., 'insurance', 'license', 'certification'
+  file_name TEXT NOT NULL,
+  file_path TEXT NOT NULL, -- Local path or S3 URL
+  file_size INTEGER, -- in bytes
+  mime_type TEXT,
+  expiry_date DATE, -- NULL if document doesn't expire
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'expired')),
+  uploaded_at TIMESTAMP DEFAULT NOW(),
+  verified_at TIMESTAMP,
+  verified_by UUID REFERENCES users(id), -- For admin verification (future feature)
+  notes TEXT -- For admin notes or rejection reasons
+);
