@@ -1,1 +1,11 @@
+# Environment
 .env
+
+# Dependencies
+node_modules/
+
+# Uploaded files
+uploads/
+
+# macOS
+.DS_Store

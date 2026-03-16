@@ -6,6 +6,8 @@ const authRoutes = require("./routes/authRoutes");
 const jobsRoutes = require("./routes/jobsRoutes");
 const bookingsRoutes = require("./routes/bookingsRoutes");
 const matchingRoutes = require("./routes/matchingRoutes");
+const documentRoutes = require("./routes/documentRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 
 
@@ -26,6 +28,8 @@ app.use("/auth", authRoutes);
 app.use("/jobs", jobsRoutes);
 app.use("/bookings", bookingsRoutes);
 app.use("/matching", matchingRoutes);
+app.use("/documents", documentRoutes);
+app.use("/admin", adminRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
